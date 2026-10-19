@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#080b16">
+<title>Neon Snake Arena</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="glow g1"></div><div class="glow g2"></div>
+<header class="topbar">
+  <a class="brand" href="#" id="homeLink">◈ NEON<span>SNAKE</span></a>
+  <button class="icon" id="soundBtn" aria-label="Toggle sound">♫ Sound: On</button>
+</header>
+<main>
+<section id="home" class="screen active">
+  <div class="eyebrow">THE CLASSIC REIMAGINED</div>
+  <h1>NEON SNAKE<br><span>ARENA</span></h1>
+  <p class="subtitle">Eat. Evolve. Survive. Own the grid.</p>
+  <div class="card setup">
+    <label for="player">PLAYER NAME</label>
+    <input id="player" maxlength="18" placeholder="Enter your name" autocomplete="nickname">
+    <div class="fields">
+      <div><label for="mode">GAME MODE</label><select id="mode"><option value="classic">Classic</option><option value="obstacle">Obstacle Run</option><option value="survival">Survival</option><option value="time">Time Attack (60 sec)</option></select></div>
+      <div><label for="difficulty">DIFFICULTY</label><select id="difficulty"><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option><option value="extreme">Extreme</option></select></div>
+    </div>
+    <button class="primary full" id="start">▶ START GAME</button>
+    <div class="buttons">
+      <button class="secondary" id="recordsOpen">▤ Records</button>
+      <button class="secondary" id="settingsOpen">⚙ Settings</button>
+      <button class="secondary" id="helpOpen">? How to play</button>
+    </div>
+  </div>
+  <div class="stats">
+    <div><small>BEST SCORE</small><strong id="homeBest">0</strong></div>
+    <div><small>GAMES PLAYED</small><strong id="homeGames">0</strong></div>
+    <div><small>FOOD EATEN</small><strong id="homeFood">0</strong></div>
+  </div>
+</section>
+
+<section id="game" class="screen">
+  <div class="gamehead"><div><div class="eyebrow">LIVE SESSION</div><h2>THE <span>ARENA</span></h2><p id="sessionInfo">Player · Classic · Normal</p></div><button class="secondary" id="menu">← Menu</button></div>
+  <div class="hud">
+    <div><small>SCORE</small><strong id="score">0</strong></div><div><small>BEST</small><strong id="best">0</strong></div><div><small>TIME</small><strong id="time">∞</strong></div><div><small>LEVEL</small><strong id="level">1</strong></div>
+  </div>
+  <div class="layout">
+    <div class="board card">
+      <div class="boardbar"><span><i class="dot"></i> <b id="status">READY</b></span><span id="modeLabel">CLASSIC MODE</span></div>
+      <div class="canvasbox"><canvas id="canvas" width="600" height="600" aria-label="Snake game board"></canvas>
+        <div class="overlay" id="overlay"><div><div class="overlay-symbol" id="overlaySymbol">◈</div><h3 id="overlayTitle">READY?</h3><p id="overlayText">Eat food and avoid collisions.</p><button class="primary" id="overlayAction">START ROUND</button></div></div>
+      </div>
+      <div class="boardbar bottom"><span>◈ NEON GRID</span><span id="foodCount">FOOD: 0</span></div>
+    </div>
+    <aside>
+      <div class="card side"><h3>MISSION CONTROL</h3><button class="control" id="pause">Ⅱ Pause <kbd>SPACE</kbd></button><button class="control" id="restart">↻ Restart <kbd>R</kbd></button><button class="control" id="gameSound">♫ Sound: On</button></div>
+      <div class="card side"><h3>ACTIVE ABILITIES</h3><div id="abilities" class="muted">Collect a power-up to unlock an ability.</div></div>
+      <div class="card side"><h3>FIELD GUIDE</h3><p>🟢 Energy food <b>+10</b></p><p>🟣 Power-up <b>BOOST</b></p><p>🟥 Obstacle <b>AVOID</b></p></div>
+    </aside>
+  </div>
+  <div class="dpad"><button data-dir="up" aria-label="Up">▲</button><div><button data-dir="left" aria-label="Left">◀</button><button data-dir="down" aria-label="Down">▼</button><button data-dir="right" aria-label="Right">▶</button></div></div>
+  <p class="hint">MOVE: ARROW KEYS / WASD · PAUSE: SPACE · RESTART: R</p>
+</section>
+
+<section id="records" class="screen"><div class="card page"><div class="eyebrow">YOUR LEGACY</div><h2>GAME <span>RECORDS</span></h2><div class="stats"><div><small>GAMES</small><strong id="rGames">0</strong></div><div><small>BEST SCORE</small><strong id="rBest">0</strong></div><div><small>AVERAGE</small><strong id="rAvg">0</strong></div></div><div class="tablewrap"><table><thead><tr><th>PLAYER</th><th>SCORE</th><th>MODE</th><th>DIFFICULTY</th><th>DATE</th></tr></thead><tbody id="recordRows"></tbody></table></div><p class="muted">Records are saved in this browser only.</p><div class="buttons"><button class="secondary" id="clearRecords">Clear records</button><button class="primary" id="recordsBack">← Back home</button></div></div></section>
+
+<section id="settings" class="screen"><div class="card page"><div class="eyebrow">MAKE IT YOURS</div><h2>GAME <span>SETTINGS</span></h2>
+  <div class="setting"><div><b>Sound effects</b><small>Food and game events</small></div><input type="checkbox" id="effects" checked></div>
+  <div class="setting"><div><b>Background tone</b><small>Quiet synthesized ambience</small></div><input type="checkbox" id="music"></div>
+  <div class="setting"><div><b>Show grid</b><small>Board grid lines</small></div><input type="checkbox" id="grid" checked></div>
+  <div class="setting"><div><b>Reduced motion</b><small>Disable animated particles</small></div><input type="checkbox" id="reduced"></div>
+  <label for="volume">SOUND VOLUME</label><input id="volume" type="range" min="0" max="100" value="35">
+  <div class="buttons"><button class="primary" id="saveSettings">Save settings</button><button class="secondary" id="settingsBack">← Back home</button></div></div></section>
+
+<section id="help" class="screen"><div class="card page"><div class="eyebrow">QUICK START</div><h2>HOW TO <span>PLAY</span></h2><p><b>Move:</b> Arrow keys, WASD, swipe, or the touch pad.</p><p><b>Eat:</b> Collect green food for 10 points and grow.</p><p><b>Power-ups:</b> Collect purple items for temporary abilities: speed, slow motion, shield, ghost, double points, bonus points, or magnet.</p><p><b>Survive:</b> Avoid your body, walls, and obstacles. Shield absorbs one collision.</p><div class="buttons"><button class="primary" id="helpStart">Let's play</button><button class="secondary" id="helpBack">← Back home</button></div></div></section>
+</main>
+<div id="toast" role="status"></div>
+<script src="script.js"></script>
+</body>
+</html>
