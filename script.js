@@ -4,6 +4,14 @@ const $ = id => document.getElementById(id);
 const canvas = $("canvas"), ctx = canvas.getContext("2d");
 const N = 24, CELL = 25, SIZE = 600;
 const DIR = {up:{x:0,y:-1},down:{x:0,y:1},left:{x:-1,y:0},right:{x:1,y:0}};
+const DEFAULT_KEY_BINDINGS = {
+  up: ["ArrowUp", "W", "w"],
+  down: ["ArrowDown", "S", "s"],
+  left: ["ArrowLeft", "A", "a"],
+  right: ["ArrowRight", "D", "d"],
+  pause: ["Space"],
+  restart: ["KeyR", "r"]
+};
 const KEY = {ArrowUp:"up",w:"up",W:"up",ArrowDown:"down",s:"down",S:"down",ArrowLeft:"left",a:"left",A:"left",ArrowRight:"right",d:"right",D:"right"};
 const DIFF = {easy:{speed:190,obstacles:0},normal:{speed:140,obstacles:10},hard:{speed:105,obstacles:20},extreme:{speed:78,obstacles:30}};
 const POWER = {
@@ -19,10 +27,82 @@ const KEYS = {records:"neonArenaRecordsFixed",settings:"neonArenaSettingsFixed",
 function read(key,fallback){try{const x=localStorage.getItem(key);return x===null?fallback:JSON.parse(x)}catch{return fallback}}
 function write(key,val){try{localStorage.setItem(key,JSON.stringify(val))}catch{notify("Browser storage is unavailable.")}}
 let records=read(KEYS.records,[]);if(!Array.isArray(records))records=[];
-let settings={effects:true,music:false,grid:true,reduced:false,volume:35,...read(KEYS.settings,{})};
+let settings={effects:true,music:false,grid:true,reduced:false,volume:35,theme:"system",mobileControl:"joystick",keyBindings:{...DEFAULT_KEY_BINDINGS},...read(KEYS.settings,{})};
+if(!settings.keyBindings || typeof settings.keyBindings !== "object") settings.keyBindings = {...DEFAULT_KEY_BINDINGS};
+for(const action of Object.keys(DEFAULT_KEY_BINDINGS)){
+  if(!Array.isArray(settings.keyBindings[action])) settings.keyBindings[action]=[...DEFAULT_KEY_BINDINGS[action]];
+  else settings.keyBindings[action]=settings.keyBindings[action].map(v=>String(v));
+}
 let game=null,state="menu",dir="right",nextDir="right",raf=0,last=0,acc=0,elapsed=0,survival=0,particles=[],toastTimer=0,audioCtx=null,musicOsc=null,musicGain=null,swipe=null;
 
+function getKeyLabel(code){
+  if(!code) return "?";
+  if(code === "Space") return "Space";
+  if(code.startsWith("Arrow")) return code.replace("Arrow", "");
+  if(code.startsWith("Key")) return code.replace("Key", "").toUpperCase();
+  if(code.length === 1) return code.toUpperCase();
+  return code;
+}
+function buildKeyOptions(selected){
+  const values=["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","W","A","S","D","Space","KeyR","Shift","Enter","Tab","Escape","KeyP","KeyM","KeyQ","KeyE","KeyZ","KeyX","KeyC","KeyV","Home","End"];
+  return values.map(value => `<option value="${value}" ${value===selected?"selected":""}>${getKeyLabel(value)}</option>`).join("");
+}
+function syncDesktopKeybindControls(){
+  const rows=document.querySelectorAll(".keybind-select");
+  rows.forEach(select=>{
+    const action=select.dataset.action;
+    const current=settings.keyBindings?.[action]?.[0] || DEFAULT_KEY_BINDINGS[action][0];
+    select.innerHTML=buildKeyOptions(current);
+  });
+}
+function keyMatchesBinding(binding, event){
+  if(!binding) return false;
+  if(binding === "Space") return event.code === "Space";
+  if(event.code === binding) return true;
+  if(event.key && event.key.toLowerCase() === binding.toLowerCase()) return true;
+  if(binding.length === 1 && event.key && event.key.toLowerCase() === binding.toLowerCase()) return true;
+  if(binding.startsWith("Key") && event.code === binding) return true;
+  if(binding.startsWith("Arrow") && event.key === binding.replace("Arrow", "")) return true;
+  return false;
+}
+function isActionKeyPressed(action, event){
+  const keyCodes = settings.keyBindings?.[action] || DEFAULT_KEY_BINDINGS[action] || [];
+  return keyCodes.some(code => keyMatchesBinding(code, event));
+}
+function getMappedDirection(event){
+  for(const action of ["up","down","left","right"]){
+    const keyCodes = settings.keyBindings?.[action] || DEFAULT_KEY_BINDINGS[action] || [];
+    if(keyCodes.some(code => keyMatchesBinding(code, event))) return action;
+  }
+  return null;
+}
+function syncGameKeyLabels(){
+  const pauseButton = $("pause");
+  const restartButton = $("restart");
+  if(pauseButton){
+    const pauseKey = settings.keyBindings?.pause?.[0] || "Space";
+    pauseButton.innerHTML = `Ⅱ Pause <kbd>${getKeyLabel(pauseKey)}</kbd>`;
+  }
+  if(restartButton){
+    const restartKey = settings.keyBindings?.restart?.[0] || "KeyR";
+    restartButton.innerHTML = `↻ Restart <kbd>${getKeyLabel(restartKey)}</kbd>`;
+  }
+  const hint = document.querySelector(".hint");
+  if(hint){
+    const move = getKeyLabel(settings.keyBindings.up[0] || "ArrowUp");
+    const down = getKeyLabel(settings.keyBindings.down[0] || "ArrowDown");
+    const left = getKeyLabel(settings.keyBindings.left[0] || "ArrowLeft");
+    const right = getKeyLabel(settings.keyBindings.right[0] || "ArrowRight");
+    hint.textContent = `MOVE: ${[move, down, left, right].join(" / ")} / TOUCH CONTROL · PAUSE: ${getKeyLabel(settings.keyBindings.pause[0] || "Space")} · RESTART: ${getKeyLabel(settings.keyBindings.restart[0] || "KeyR")}`;
+  }
+}
 function notify(msg){const el=$("toast");el.textContent=msg;el.classList.add("show");clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove("show"),2200)}
+function applyTheme(theme=settings.theme){
+ const mode=["dark","light","system"].includes(theme)?theme:"system";
+ document.documentElement.dataset.theme=mode;
+ const light=mode==="light"||(mode==="system"&&window.matchMedia("(prefers-color-scheme: light)").matches);
+ document.querySelector('meta[name="theme-color"]').content=light?"#f3f6fc":"#080b16";
+}
 function show(id){document.querySelectorAll(".screen").forEach(el=>el.classList.toggle("active",el.id===id))}
 function modeName(m){return ({classic:"Classic",obstacle:"Obstacle Run",survival:"Survival",time:"Time Attack"})[m]||"Classic"}
 function sound(name){
@@ -68,12 +148,12 @@ function newGame(){
 function begin(){if(state!=="ready")return;state="running";game.started=true;game.startedAt=Date.now();last=0;acc=0;$("overlay").classList.add("hidden");$("status").textContent="PLAYING";sound("start");music()}
 function interval(){let ms=game.speed;if(game.powers.speed)ms*=.65;if(game.powers.slow)ms*=1.5;return Math.max(42,ms)}
 function loop(t){raf=requestAnimationFrame(loop);if(!game)return;if(!last)last=t;const dt=Math.min(100,t-last);last=t;
- if(state==="running"){elapsed+=dt;acc+=dt;updatePowers();if(game.mode==="time"){const left=Math.max(0,60-elapsed/1000);$("time").textContent=Math.ceil(left);if(left<=0){finish("TIME UP")}}
+ if(state==="running"){elapsed+=dt;acc+=dt;updatePowers(dt);if(game.mode==="time"){const left=Math.max(0,60-elapsed/1000);$("time").textContent=Math.ceil(left);if(left<=0){finish("TIME UP")}}
  if(state==="running"&&acc>=interval()){acc%=interval();step()}}
  updateParticles(dt);draw();
 }
-function updatePowers(){const now=performance.now();for(const k of Object.keys(game.powers))if(now>=game.powers[k])delete game.powers[k];
- if(game.mode==="survival"){survival+=16;if(survival>12000){survival=0;addObstacle()}}
+function updatePowers(dt){const now=performance.now();for(const k of Object.keys(game.powers))if(now>=game.powers[k])delete game.powers[k];
+ if(game.mode==="survival"){survival+=dt;if(survival>12000){survival=0;addObstacle()}}
  if(game.powers.magnet&&game.food&&Math.random()<.04){const h=game.snake[0],p={x:h.x+Math.sign(game.food.x-h.x),y:h.y+Math.sign(game.food.y-h.y)};if(p.x>=0&&p.x<N&&p.y>=0&&p.y<N&&!game.snake.some(s=>same(s,p))&&!game.obstacles.some(o=>same(o,p)))game.food=p}
  renderAbilities();
 }
@@ -89,7 +169,6 @@ function step(){
    if(game.shield>0||game.powers.shield){if(game.shield>0)game.shield--;else delete game.powers.shield;sound("power");notify("Shield absorbed the collision!");if(wall){head.x=Math.max(0,Math.min(N-1,head.x));head.y=Math.max(0,Math.min(N-1,head.y))}else{game.snake=[{x:8,y:12},{x:7,y:12},{x:6,y:12}];dir=nextDir="right";return}}
    else{finish("GAME OVER");return}
  }
- if(wall){finish("GAME OVER");return}
  if(obstacle&&ghost)game.avoided++;
  game.snake.unshift(head);
  if(eating)eat();else game.snake.pop();
@@ -123,8 +202,29 @@ function draw(){ctx.clearRect(0,0,SIZE,SIZE);ctx.fillStyle="#090f1b";ctx.fillRec
 }
 function change(d){if(!DIR[d])return;const a=DIR[dir],b=DIR[d];if(a.x+b.x===0&&a.y+b.y===0)return;nextDir=d}
 function pause(){if(state==="ready"){begin();return}if(state==="running"){state="paused";$("status").textContent="PAUSED";$("overlay").classList.remove("hidden");$("overlaySymbol").textContent="Ⅱ";$("overlayTitle").textContent="PAUSED";$("overlayText").textContent="Take a breath. The arena awaits.";$("overlayAction").textContent="RESUME GAME";$("pause").innerHTML='▶ Resume <kbd>SPACE</kbd>';stopMusic();sound("pause")}else if(state==="paused"){state="running";last=0;acc=0;$("status").textContent="PLAYING";$("overlay").classList.add("hidden");$("pause").innerHTML='Ⅱ Pause <kbd>SPACE</kbd>';music()}}
-document.addEventListener("keydown",e=>{if(KEY[e.key]&&(state==="running"||state==="ready")){e.preventDefault();if(state==="ready")begin();change(KEY[e.key]);return}if(e.code==="Space"&&state!=="menu"){e.preventDefault();pause()}if(e.key.toLowerCase()==="r"&&state!=="menu")newGame();if(e.key==="Escape"&&state!=="menu")goHome()});
+document.addEventListener("keydown",e=>{
+  const mappedDirection = getMappedDirection(e);
+  if(mappedDirection && (state==="running"||state==="ready")){e.preventDefault();if(state==="ready")begin();change(mappedDirection);return}
+  if(isActionKeyPressed("pause", e) && state!=="menu"){e.preventDefault();pause();return}
+  if(isActionKeyPressed("restart", e) && state!=="menu"){e.preventDefault();newGame();return}
+  if(e.key === "Escape" && state!=="menu"){e.preventDefault();goHome();}
+});
 document.querySelectorAll("[data-dir]").forEach(b=>b.addEventListener("pointerdown",e=>{e.preventDefault();if(state==="ready")begin();if(state==="running")change(b.dataset.dir)}));
+const joystick=$("joystick"),joystickKnob=$("joystickKnob");
+function resetJoystick(){joystickKnob.style.transform=""}
+function steerJoystick(e){
+ const box=joystick.querySelector(".joystick-base").getBoundingClientRect(),dx=e.clientX-(box.left+box.width/2),dy=e.clientY-(box.top+box.height/2);
+ const radius=37,distance=Math.hypot(dx,dy),scale=distance>radius?radius/distance:1;
+ joystickKnob.style.transform=`translate(${dx*scale}px,${dy*scale}px)`;
+ if(distance<12)return;
+ if(state==="ready")begin();
+ if(state==="running")change(Math.abs(dx)>Math.abs(dy)?(dx>0?"right":"left"):(dy>0?"down":"up"));
+}
+joystick.addEventListener("pointerdown",e=>{e.preventDefault();joystick.setPointerCapture(e.pointerId);steerJoystick(e)});
+joystick.addEventListener("pointermove",e=>{if(joystick.hasPointerCapture(e.pointerId))steerJoystick(e)});
+joystick.addEventListener("pointerup",resetJoystick);
+joystick.addEventListener("pointercancel",resetJoystick);
+joystick.addEventListener("lostpointercapture",resetJoystick);
 canvas.addEventListener("pointerdown",e=>{swipe={x:e.clientX,y:e.clientY}});
 canvas.addEventListener("pointerup",e=>{if(!swipe)return;const dx=e.clientX-swipe.x,dy=e.clientY-swipe.y;swipe=null;if(Math.max(Math.abs(dx),Math.abs(dy))<18)return;if(state==="ready")begin();if(state!=="running")return;change(Math.abs(dx)>Math.abs(dy)?(dx>0?"right":"left"):(dy>0?"down":"up"))});
 canvas.addEventListener("pointercancel",()=>swipe=null);
@@ -140,10 +240,25 @@ $("recordsBack").onclick=()=>{show("home");updateHome()};
 $("settingsBack").onclick=()=>show("home");$("helpBack").onclick=()=>show("home");$("helpStart").onclick=()=>newGame();
 function renderRecords(){const best=bestScore(),total=records.reduce((n,r)=>n+r.score,0);$("rGames").textContent=records.length;$("rBest").textContent=best;$("rAvg").textContent=records.length?Math.round(total/records.length):0;const body=$("recordRows");body.replaceChildren();if(!records.length){const tr=document.createElement("tr"),td=document.createElement("td");td.colSpan=5;td.textContent="No games yet. Start your first run!";tr.append(td);body.append(tr);return}records.slice(0,30).forEach(r=>{const tr=document.createElement("tr");[r.name,r.score,modeName(r.mode),r.difficulty,new Date(r.date).toLocaleDateString()].forEach(v=>{const td=document.createElement("td");td.textContent=String(v);tr.append(td)});body.append(tr)})}
 $("clearRecords").onclick=()=>{if(confirm("Permanently clear all saved records?")){records=[];write(KEYS.records,records);renderRecords();updateHome();notify("Records cleared.")}};
-function loadSettings(){$("effects").checked=settings.effects;$("music").checked=settings.music;$("grid").checked=settings.grid;$("reduced").checked=settings.reduced;$("volume").value=settings.volume}
-$("saveSettings").onclick=()=>{settings={effects:$("effects").checked,music:$("music").checked,grid:$("grid").checked,reduced:$("reduced").checked,volume:Number($("volume").value)};write(KEYS.settings,settings);syncSound();if(settings.music)music();else stopMusic();draw();notify("Settings saved!")};
+function loadSettings(){$("effects").checked=settings.effects;$("music").checked=settings.music;$("theme").value=settings.theme;$("mobileControl").value=settings.mobileControl==="joystick"?"joystick":"dpad";$("grid").checked=settings.grid;$("reduced").checked=settings.reduced;$("volume").value=settings.volume;syncDesktopKeybindControls();syncGameKeyLabels();applyTheme()}
+function applyMobileControl(){const joystickSelected=$("mobileControl").value==="joystick";$("joystick").classList.toggle("mobile-control-hidden",!joystickSelected);$("dpad").classList.toggle("mobile-control-hidden",joystickSelected);$("mobileControlToggle").textContent=joystickSelected?"D-pad":"Joystick";$("mobileControlToggle").setAttribute("aria-label","Switch to "+(joystickSelected?"D-pad":"joystick")+" controls")}
+function setMobileControl(){settings.mobileControl=$("mobileControl").value==="joystick"?"joystick":"dpad";applyMobileControl();write(KEYS.settings,settings)}
+function updateKeyBinding(action){
+  const select=document.querySelector(`.keybind-select[data-action="${action}"]`);
+  if(!select) return;
+  const value=select.value;
+  settings.keyBindings[action]=[value];
+  syncGameKeyLabels();
+  write(KEYS.settings,settings);
+}
+$("mobileControl").addEventListener("change",setMobileControl);
+$("mobileControlToggle").onclick=()=>{$("mobileControl").value=settings.mobileControl==="joystick"?"dpad":"joystick";setMobileControl()};
+Array.from(document.querySelectorAll(".keybind-select")).forEach(select=>{
+  select.addEventListener("change",()=>updateKeyBinding(select.dataset.action));
+});
+$("saveSettings").onclick=()=>{settings={effects:$("effects").checked,music:$("music").checked,theme:$("theme").value,mobileControl:$("mobileControl").value,grid:$("grid").checked,reduced:$("reduced").checked,volume:Number($("volume").value),keyBindings:{...settings.keyBindings}};syncDesktopKeybindControls();syncGameKeyLabels();applyTheme();applyMobileControl();write(KEYS.settings,settings);syncSound();if(settings.music)music();else stopMusic();draw();notify("Settings saved!")};
 function toggleSound(){settings.effects=!settings.effects;write(KEYS.settings,settings);syncSound();if(settings.effects)sound("click")}
 $("soundBtn").onclick=toggleSound;$("gameSound").onclick=toggleSound;
-function init(){const name=read(KEYS.player,"");if(typeof name==="string")$("player").value=name;loadSettings();syncSound();updateHome();game={snake:[{x:8,y:12},{x:7,y:12},{x:6,y:12}],food:{x:15,y:12},power:null,obstacles:[],powers:{}};draw()}
+function init(){const name=read(KEYS.player,"");if(typeof name==="string")$("player").value=name;loadSettings();applyMobileControl();syncGameKeyLabels();const colorScheme=window.matchMedia("(prefers-color-scheme: light)");if(colorScheme.addEventListener)colorScheme.addEventListener("change",()=>{if(settings.theme==="system")applyTheme()});syncSound();updateHome();game={snake:[{x:8,y:12},{x:7,y:12},{x:6,y:12}],food:{x:15,y:12},power:null,obstacles:[],powers:{}};draw()}
 init();
 })();
