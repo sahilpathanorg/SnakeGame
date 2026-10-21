@@ -52,14 +52,18 @@
       </div>
       <div class="boardbar bottom"><span>◈ NEON GRID</span><span id="foodCount">FOOD: 0</span></div>
     </div>
+    <div class="dpad" id="dpad"><button data-dir="up" aria-label="Up">▲</button><div><button data-dir="left" aria-label="Left">◀</button><button data-dir="down" aria-label="Down">▼</button><button data-dir="right" aria-label="Right">▶</button></div></div>
+    <div class="joystick mobile-control-hidden" id="joystick" role="group" aria-label="Touch joystick. Drag in a direction to steer.">
+      <div class="joystick-base"><div class="joystick-knob" id="joystickKnob"></div></div>
+      <span>DRAG TO MOVE</span>
+    </div>
     <aside>
-      <div class="card side"><h3>MISSION CONTROL</h3><button class="control" id="pause">Ⅱ Pause <kbd>SPACE</kbd></button><button class="control" id="restart">↻ Restart <kbd>R</kbd></button><button class="control" id="gameSound">♫ Sound: On</button></div>
+      <div class="card side"><h3>MISSION CONTROL</h3><button class="control" id="pause">Ⅱ Pause <kbd>SPACE</kbd></button><button class="control" id="restart">↻ Restart <kbd>R</kbd></button><button class="control" id="gameSound">♫ Sound: On</button><button class="control" id="mobileControlToggle">D-pad</button></div>
       <div class="card side"><h3>ACTIVE ABILITIES</h3><div id="abilities" class="muted">Collect a power-up to unlock an ability.</div></div>
       <div class="card side"><h3>FIELD GUIDE</h3><p>🟢 Energy food <b>+10</b></p><p>🟣 Power-up <b>BOOST</b></p><p>🟥 Obstacle <b>AVOID</b></p></div>
     </aside>
   </div>
-  <div class="dpad"><button data-dir="up" aria-label="Up">▲</button><div><button data-dir="left" aria-label="Left">◀</button><button data-dir="down" aria-label="Down">▼</button><button data-dir="right" aria-label="Right">▶</button></div></div>
-  <p class="hint">MOVE: ARROW KEYS / WASD · PAUSE: SPACE · RESTART: R</p>
+  <p class="hint">MOVE: ARROWS / WASD / TOUCH CONTROL · PAUSE: SPACE · RESTART: R</p>
 </section>
 
 <section id="records" class="screen"><div class="card page"><div class="eyebrow">YOUR LEGACY</div><h2>GAME <span>RECORDS</span></h2><div class="stats"><div><small>GAMES</small><strong id="rGames">0</strong></div><div><small>BEST SCORE</small><strong id="rBest">0</strong></div><div><small>AVERAGE</small><strong id="rAvg">0</strong></div></div><div class="tablewrap"><table><thead><tr><th>PLAYER</th><th>SCORE</th><th>MODE</th><th>DIFFICULTY</th><th>DATE</th></tr></thead><tbody id="recordRows"></tbody></table></div><p class="muted">Records are saved in this browser only.</p><div class="buttons"><button class="secondary" id="clearRecords">Clear records</button><button class="primary" id="recordsBack">← Back home</button></div></div></section>
@@ -67,12 +71,23 @@
 <section id="settings" class="screen"><div class="card page"><div class="eyebrow">MAKE IT YOURS</div><h2>GAME <span>SETTINGS</span></h2>
   <div class="setting"><div><b>Sound effects</b><small>Food and game events</small></div><input type="checkbox" id="effects" checked></div>
   <div class="setting"><div><b>Background tone</b><small>Quiet synthesized ambience</small></div><input type="checkbox" id="music"></div>
+  <div class="setting"><div><b>Appearance</b><small>Choose how Neon Snake looks</small></div><select id="theme" aria-label="Color theme"><option value="system">System</option><option value="dark">Dark</option><option value="light">Light</option></select></div>
+  <div class="setting"><div><b>Mobile controls</b><small>Choose your touch controller</small></div><select id="mobileControl" aria-label="Mobile controls"><option value="dpad">D-pad</option><option value="joystick">Joystick</option></select></div>
+  <div class="setting desktop-controls-header"><div><b>Desktop controls</b><small>Rebind keyboard and control icons</small></div></div>
+  <div class="keybind-grid">
+    <label class="keybind-row"><span>Move up</span><select class="keybind-select" data-action="up" aria-label="Change up key"></select></label>
+    <label class="keybind-row"><span>Move down</span><select class="keybind-select" data-action="down" aria-label="Change down key"></select></label>
+    <label class="keybind-row"><span>Move left</span><select class="keybind-select" data-action="left" aria-label="Change left key"></select></label>
+    <label class="keybind-row"><span>Move right</span><select class="keybind-select" data-action="right" aria-label="Change right key"></select></label>
+    <label class="keybind-row"><span>Pause</span><select class="keybind-select" data-action="pause" aria-label="Change pause key"></select></label>
+    <label class="keybind-row"><span>Restart</span><select class="keybind-select" data-action="restart" aria-label="Change restart key"></select></label>
+  </div>
   <div class="setting"><div><b>Show grid</b><small>Board grid lines</small></div><input type="checkbox" id="grid" checked></div>
   <div class="setting"><div><b>Reduced motion</b><small>Disable animated particles</small></div><input type="checkbox" id="reduced"></div>
   <label for="volume">SOUND VOLUME</label><input id="volume" type="range" min="0" max="100" value="35">
   <div class="buttons"><button class="primary" id="saveSettings">Save settings</button><button class="secondary" id="settingsBack">← Back home</button></div></div></section>
 
-<section id="help" class="screen"><div class="card page"><div class="eyebrow">QUICK START</div><h2>HOW TO <span>PLAY</span></h2><p><b>Move:</b> Arrow keys, WASD, swipe, or the touch pad.</p><p><b>Eat:</b> Collect green food for 10 points and grow.</p><p><b>Power-ups:</b> Collect purple items for temporary abilities: speed, slow motion, shield, ghost, double points, bonus points, or magnet.</p><p><b>Survive:</b> Avoid your body, walls, and obstacles. Shield absorbs one collision.</p><div class="buttons"><button class="primary" id="helpStart">Let's play</button><button class="secondary" id="helpBack">← Back home</button></div></div></section>
+<section id="help" class="screen"><div class="card page"><div class="eyebrow">QUICK START</div><h2>HOW TO <span>PLAY</span></h2><p><b>Move:</b> Arrow keys, WASD, swipe, or your selected mobile control (D-pad or joystick).</p><p><b>Eat:</b> Collect green food for 10 points and grow.</p><p><b>Power-ups:</b> Collect purple items for temporary abilities: speed, slow motion, shield, ghost, double points, bonus points, or magnet.</p><p><b>Survive:</b> Avoid your body, walls, and obstacles. Shield absorbs one collision.</p><div class="buttons"><button class="primary" id="helpStart">Let's play</button><button class="secondary" id="helpBack">← Back home</button></div></div></section>
 </main>
 <div id="toast" role="status"></div>
 <script src="script.js"></script>
